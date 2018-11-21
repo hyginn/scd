@@ -1,19 +1,15 @@
 # read_gmt.R
-library(readr)
-library(dplyr)
 
 gmtToDF <- function(filename) {
   #
-  # institute: The source of the data, seperates experiments in gmt file
-  #
-  # Reads in from a file and returns a DF with column 1 as gene names, other
+  # Reads in from filename and returns a DF with column 1 as gene names, other
   # columns logical as to whether that gene was successful in the experiment
   
   genes <- read_file(filename)
   genes <- strsplit(genes, "\n")
   genes <- lapply(genes, strsplit, split = "\t")[[1]]
   
-  ExpNames <- sapply(genes, function(x) x[[1]]) # Get standard name for experiment
+  ExpName <- sapply(genes, function(x) x[[1]]) # Get standard name for experiment
   # Remove the experiment name and comment entries
   genes <- sapply(genes, function(x) x[-1:-2])
 
@@ -21,9 +17,11 @@ gmtToDF <- function(filename) {
   groups <- unlist(mapply(function(x,y) rep(x, length(y)),
                     1:length(genes),
                     genes))
-  GeneMembership <- data.frame(gene = unlist(genes),
+  # Adding unique to df creation prevents an error in spread from error columns
+  # with duplicate genes from a single dataset
+  GeneMembership <- unique(data.frame(gene = unlist(genes),
                         ExpID = groups,
-                        stringsAsFactors = F) %>%
+                        stringsAsFactors = F)) %>%
     mutate(True = T) %>% # Sets a column to true, the case for each experiment
     spread(ExpID, True, fill = F) # Turns genes into rows, with logical column for each experiment
   
@@ -32,4 +30,4 @@ gmtToDF <- function(filename) {
   return(GeneMembership)
 }
 
-CompSet <- gmtToDF("./data/CompGeneSet.gmt")
+# [END]
