@@ -79,6 +79,10 @@ summary(model)
 fittedValues <- predict(model, newdata=select(test, corr), type='response')
 fittedValues <- ifelse(fittedValues > 0.5, 1, 0)
 errors <- mean(fittedValues != test$Match)
+FP <- mean(fittedValues == 1 & test$Match == 0)
+# 0.053768...
+FN <- mean(fittedValues == 0 & test$Match == 1)
+# 0.17224...
 # We see that this initial model has an accuracy of only 77.4%
 
 # [END]
