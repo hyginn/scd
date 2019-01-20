@@ -1,26 +1,7 @@
 # SignatureDataAnalysis.R
 
-####-------- Data Generation -------####
-
-# Create vectors with gene symbols for the systems of interest
-GLYCOLYSIS_GENES <- read.delim("./data/glycolysis.tab", stringsAsFactors = F)$Symbol
-RIBOSOMAL_S <- read.delim("./data/ribosomal.tab", stringsAsFactors = F)$Approved.symbol
-GLYCOSYLATION <- read.delim("./data/glycosylation.tab", stringsAsFactors = F)$ProteinHuman
-GLYCOSYLATION <- toupper(GLYCOSYLATION)[GLYCOSYLATION != "?"]
-
-# Read in all our data sets from MSigDB into dfs
-Hallmark <- gmtToDF("./data/Hallmark.gmt")
-Curated <- gmtToDF("./data/Curated.gmt")
-CompSet <- gmtToDF("./data/CompGeneSet.gmt")
-
-# Join these frames together
-signatures <- full_join(Hallmark, Curated, by = "gene")
-signatures <- full_join(signatures, CompSet, by = "gene")
-# Add genes as rownames instead of a column
-rownames(signatures) <- signatures[,1]
-signatures <- signatures[,-1]
-# Full join puts missing data to NA, replace with False instead
-signatures[is.na(signatures)] <- F
+#Source associated scripts for data
+source("./scripts/DataGeneration.R")
 
 #Check which genes are missing in the signatures DB
 which(!(GLYCOLYSIS_GENES %in% rownames(signatures)))
@@ -148,5 +129,24 @@ predictions <- ifelse(predictions$net.result > 0.5, 1, 0)
 errors <- mean(predictions != geneMatch$Match[-trainRows])
 FP <- mean(predictions == 1 & geneMatch$Match[-trainRows] == 0)
 
+##### ------- MCA For Dimensionality Reduction ------- #####
+binaryMatrix <- apply(as.data.frame(Interest), 2, as.factor)
+geneMCA <- MCA(binaryMatrix, ncp = 1, graph = F)
+Projection <- geneMCA$ind$coord
+names <- names(geneMCA$ind$contrib)
+result <- Ckmeans.1d.dp(Projection, k=c(1,7))
+cluster <- result$cluster
+compare <- data.frame(gene1 = rep(names, length(names)),
+                      gene2 = as.vector(sapply(names, rep, list(length(names)))),
+                      cluster1 = rep(cluster, length(names)),
+                      cluster2 = as.vector(sapply(cluster, rep, list(length(names)))),
+                      stringsAsFactors = F) %>%
+  mutate(gMatch = cluster1 == cluster2,
+         system1 = systems[gene1, 1],
+         system2 = systems[gene2, 1],
+         rMatch = system1 == system2) %>%
+  filter(gene1 < gene2)
+mean(compare$rMatch != compare$gMatch)
+sum(compare$rMatch == 0 & compare$gMatch == 1) / sum(compare$rMatch == 0)
 
 # [END]
