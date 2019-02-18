@@ -7,16 +7,20 @@ source("./scripts/DataGeneration.R")
 which(!(GLYCOLYSIS_GENES %in% rownames(signatures)))
 which(!(GLYCOSYLATION %in% rownames(signatures)))
 which(!(RIBOSOMAL_S %in% rownames(signatures)))
+which(!(SONIC %in% rownames(signatures)))
+which(!(RNA_POL %in% rownames(signatures)))
 # There seems to be reasonable coverage here
 
 ####-------- Correlation Analysis -------####
 
 # Compile all systems together for comparison
-AllGenes <- c(GLYCOLYSIS_GENES, GLYCOSYLATION, RIBOSOMAL_S)
+AllGenes <- c(GLYCOLYSIS_GENES, GLYCOSYLATION, RIBOSOMAL_S, SONIC, RNA_POL)
 subset <- AllGenes[AllGenes %in% rownames(signatures)]
 systems <- c(rep("Glycolysis", length(GLYCOLYSIS_GENES)),
              rep("Glycosylation", length(GLYCOSYLATION)),
-             rep("Ribosome", length(RIBOSOMAL_S)))
+             rep("Ribosome", length(RIBOSOMAL_S)),
+             rep("SHH", length(SONIC)),
+             rep("RNA Pol", length(RNA_POL)))
 systems <- data.frame(system = systems, row.names = AllGenes,
                       stringsAsFactors = F)
 # Select the rows featuring our investigated genes
@@ -56,7 +60,7 @@ GeneByGene$Match <- ifelse(GeneByGene$System == GeneByGene$System2,
 
 set.seed(pi)
 # Select rows for training and testing
-trainRows <- sample(1:nrow(GeneByGene), 2000)
+trainRows <- sample(1:nrow(GeneByGene), 5000)
 train <- GeneByGene[trainRows,]
 test <- GeneByGene[-trainRows,]
 # Create an lm based on a binomial model
@@ -68,10 +72,10 @@ summary(model)
 fittedValues <- predict(model, newdata=select(test, corr), type='response')
 fittedValues <- ifelse(fittedValues > 0.5, 1, 0)
 errors <- mean(fittedValues != test$Match)
-FP <- mean(fittedValues == 1 & test$Match == 0)
-# 0.0608
-FN <- mean(fittedValues == 0 & test$Match == 1)
-# 0.161...
+FP <- sum(fittedValues == 1 & test$Match == 0)/sum(test$Match == 0)
+# 0.107
+FN <- sum(fittedValues == 0 & test$Match == 1)/sum(test$Match == 1)
+# 0.401
 # We see that this initial model has an accuracy of only 77.8%
 
 
@@ -106,10 +110,11 @@ geneMatch <- rbind(geneMatch, geneMatrix)
 geneMatch$system1 <- systems[geneMatch$gene1, 1]
 geneMatch$system2 <- systems[geneMatch$gene2, 1]
 geneMatch$Match <- ifelse(geneMatch$system1 == geneMatch$system2, 1, 0)
+geneMatch <- filter(geneMatch, !is.na(Match))
 
 set.seed(pi)
 # Select the rows for training and testing
-trainRows <- sample(1:nrow(geneMatch), 2000)
+trainRows <- sample(1:nrow(geneMatch), 3500)
 train <- geneMatch[trainRows,] %>%
   select(-gene1, -gene2, -system1, -system2)
 test <- geneMatch[-trainRows,] %>%
@@ -126,8 +131,9 @@ model <- neuralnet(formula = formula, train, hidden = 2)
 predictions <- compute(model, test)
 predictions <- ifelse(predictions$net.result > 0.5, 1, 0)
 
-errors <- mean(predictions != geneMatch$Match[-trainRows])
-FP <- mean(predictions == 1 & geneMatch$Match[-trainRows] == 0)
+errors <- mean(predictions != matches)
+FP <- sum(predictions == 1 & matches == 0) / sum(matches == 0)
+FN <- sum(predictions == 0 & matches == 1) / sum(matches == 1)
 
 ##### ------- MCA For Dimensionality Reduction ------- #####
 binaryMatrix <- apply(as.data.frame(Interest), 2, as.factor)
@@ -148,5 +154,12 @@ compare <- data.frame(gene1 = rep(names, length(names)),
   filter(gene1 < gene2)
 mean(compare$rMatch != compare$gMatch)
 sum(compare$rMatch == 0 & compare$gMatch == 1) / sum(compare$rMatch == 0)
+
+sys <- systems[names,1]
+ggplot() + geom_point(aes(x = 1:123, y = Projection, 
+                          colour = as.factor(cluster), shape = sys)) +
+  scale_color_discrete(name = "cluster") + ylim(-0.05,0.1) + xlab("") +
+  scale_shape_discrete(name = "System")
+
 
 # [END]

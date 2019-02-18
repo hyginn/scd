@@ -9,6 +9,8 @@ GLYCOLYSIS_GENES <- read.delim("./data/glycolysis.tab", stringsAsFactors = F)$Sy
 RIBOSOMAL_S <- read.delim("./data/ribosomal.tab", stringsAsFactors = F)$Approved.symbol
 GLYCOSYLATION <- read.delim("./data/glycosylation.tab", stringsAsFactors = F)$ProteinHuman
 GLYCOSYLATION <- toupper(GLYCOSYLATION)[GLYCOSYLATION != "?"]
+SONIC <- read.delim("./data/shh.tab", stringsAsFactors = F)$Gene
+RNA_POL <- read.delim("./data/RNAPol.tab", stringsAsFactors = F)$Approved.symbol
 
 # Read in all our data sets from MSigDB into dfs
 Hallmark <- gmtToDF("./data/Hallmark.gmt")
